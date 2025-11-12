@@ -1,41 +1,46 @@
-import { createAsyncThunk } from "@reduxjs/toolkit";
-import { createSlice } from "@reduxjs/toolkit";
-import axios from "axios";
-import { addDoc, collection, deleteDoc, doc, getDocs, query, updateDoc } from "firebase/firestore";
-import {db} from "../../firebase";
-// var API_URL = "http://localhost:5000/taskList";
-let userId = localStorage.getItem('userId')
-export const createTask = createAsyncThunk("/createTask", async (data) => {
-  const newTask ={...data,userId}
-  console.log(newTask)
-  await addDoc(collection(db, 'taskList'),newTask);
-});
+// features/taskSlice.js
+import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  query,
+  updateDoc,
+} from "firebase/firestore";
+import { db } from "../../firebase";
 
-export const viewTask = createAsyncThunk("/viewTask", async () => {
-   const result = await getDocs(query(collection(db,'taskList')))
-  //  console.log(result)
-  let arr = []
-  result.forEach((ele)=>{
-    // console.log(ele.data(),ele.id)
-    const task = {
-      id:ele.id,
-      ...ele.data()
-    }
-    // console.log(task)
-    arr.push(task)
-  })
-  const filterData = arr.filter((ele)=>ele.userId===userId)
-  console.log(filterData)
+let userId = localStorage.getItem("userId") || null;
+
+export const createTask = createAsyncThunk(
+  "task/createTask",
+  async (data, thunkAPI) => {
+    const newTask = { ...data, userId, createdAt: new Date().toISOString() };
+    const docRef = await addDoc(collection(db, "taskList"), newTask);
+    // return the new task including firestore id
+    return { id: docRef.id, ...newTask };
+  }
+);
+
+export const viewTask = createAsyncThunk("task/viewTask", async () => {
+  const result = await getDocs(query(collection(db, "taskList")));
+  const arr = [];
+  result.forEach((ele) => {
+    arr.push({ id: ele.id, ...ele.data() });
+  });
+  const filterData = arr.filter((ele) => ele.userId === userId);
   return filterData;
 });
 
-export const deleteTask = createAsyncThunk("/deleteTask", async (id) => {
+export const deleteTask = createAsyncThunk("task/deleteTask", async (id) => {
   await deleteDoc(doc(db, `taskList/${id}`));
-  return id;
+  return id; // return id so reducer knows which to remove
 });
 
-export const updateTask = createAsyncThunk("/updateTask", async (data) => {
-  await updateDoc(doc(db, `taskList/${data.id}`), data);
+export const updateTask = createAsyncThunk("task/updateTask", async (data) => {
+  const { id, ...rest } = data;
+  await updateDoc(doc(db, `taskList/${id}`), rest);
   return data;
 });
 
@@ -43,26 +48,46 @@ const taskSlice = createSlice({
   name: "task",
   initialState: {
     taskList: [],
+    loading: false,
+    error: null,
   },
   reducers: {},
-  extraReducers: (res) => {
-    res
+  extraReducers: (builder) => {
+    builder
+      .addCase(createTask.pending, (state) => {
+        state.loading = true;
+      })
       .addCase(createTask.fulfilled, (state, action) => {
+        state.loading = false;
+        // add new task to list
         state.taskList.push(action.payload);
       })
+      .addCase(createTask.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error;
+      })
+
+      .addCase(viewTask.pending, (state) => {
+        state.loading = true;
+      })
       .addCase(viewTask.fulfilled, (state, action) => {
+        state.loading = false;
         state.taskList = action.payload;
       })
+      .addCase(viewTask.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error;
+      })
+
       .addCase(deleteTask.fulfilled, (state, action) => {
-        const { id } = action.payload;
+        const id = action.payload;
         state.taskList = state.taskList.filter((task) => task.id !== id);
       })
+
       .addCase(updateTask.fulfilled, (state, action) => {
         const { id } = action.payload;
-        const index = state.taskList.findIndex((task) => task.id === id);
-        if (index !== -1) {
-          state.taskList[index] = action.payload;
-        }
+        const idx = state.taskList.findIndex((t) => t.id === id);
+        if (idx !== -1) state.taskList[idx] = action.payload;
       });
   },
 });

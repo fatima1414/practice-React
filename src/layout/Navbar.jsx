@@ -1,64 +1,78 @@
-import { onAuthStateChanged } from "firebase/auth";
-import { useEffect, useState } from "react";
-import { NavLink } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
 import { auth } from "../../firebase";
 
-const navbar= () => {
- const [authUser,setAuthUser] = useState({})
- useEffect(()=>{
-        onAuthStateChanged(auth,(result)=>{
-         setAuthUser(result)
-        })
-    })
+const Navbar = () => {
+  const [authUser, setAuthUser] = useState(null);
+  const navigate = useNavigate();
 
-  return(
-  <>
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      setAuthUser(user);
+      if (user) localStorage.setItem("userId", user.uid);
+      else localStorage.removeItem("userId");
+    });
+    return () => unsub();
+  }, []);
 
-  {
-    authUser!=null ?
-        <header>
-      <nav className="navbar navbar-expand-lg navbar-light bg-light">
-        <div className="container-fluid">
-          <NavLink className="navbar-brand" to="/">
-            Navbar
-          </NavLink>
-          <button 
+  async function signInGoogle() {
+    const provider = new GoogleAuthProvider();
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      localStorage.setItem("userId", user.uid);
+      setAuthUser(user);
+      navigate("/");
+    } catch (err) {
+      alert(err.message);
+    }
+  }
 
-          
-            className="navbar-toggler"
-            type="button"
-            data-bs-toggle="collapse"
-            data-bs-target="#navbarSupportedContent"
-            aria-controls="navbarSupportedContent"
-            aria-expanded="false"
-            aria-label="Toggle navigation"
-          >
-            <span className="navbar-toggler-icon"></span>
-          </button>
-          <div className="collapse navbar-collapse" id="navbarSupportedContent">
+  async function handleSignOut() {
+    await signOut(auth);
+    setAuthUser(null);
+    localStorage.removeItem("userId");
+    navigate("/signin");
+  }
+
+  return (
+    <header>
+      <nav className="navbar navbar-expand-lg navbar-light bg-light shadow-sm">
+        <div className="container">
+          <NavLink className="navbar-brand" to="/">MyTasks</NavLink>
+          <div className="collapse navbar-collapse show">
             <ul className="navbar-nav me-auto mb-2 mb-lg-0">
-              <li className="nav-item">
-                <NavLink className="nav-link active" aria-current="page" to="/">
-                  Home
-                </NavLink>
-              </li>
-              <li className="nav-item">
-                <NavLink className="nav-link" to="/addTask">
-                  add form
-                </NavLink>
-              </li>
+              {authUser && (
+                <>
+                  <li className="nav-item">
+                    <NavLink className="nav-link" to="/">Home</NavLink>
+                  </li>
+                  <li className="nav-item">
+                    <NavLink className="nav-link" to="/addTask">Add Task</NavLink>
+                  </li>
+                </>
+              )}
             </ul>
+
+            <div className="d-flex align-items-center">
+              {authUser ? (
+                <>
+                  <span className="me-2">{authUser.displayName || authUser.email}</span>
+                  <button className="btn btn-outline-danger btn-sm" onClick={handleSignOut}>Logout</button>
+                </>
+              ) : (
+                <>
+                  <button className="btn btn-outline-primary me-2" onClick={() => navigate('/signin')}>Login</button>
+                  <button className="btn btn-primary" onClick={signInGoogle}>Sign in with Google</button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </nav>
-       </header>
-    :
-    ""
-   
-  }
- 
-  </>
-  )
+    </header>
+  );
 };
 
-export default navbar;
+export default Navbar;

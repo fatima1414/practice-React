@@ -1,43 +1,39 @@
-import {  signInWithEmailAndPassword } from 'firebase/auth'
-import React from 'react'
-import { useForm } from 'react-hook-form'
-import { Form, NavLink } from 'react-router-dom'
-import { auth } from '../../firebase'
+import React from "react";
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { auth } from "../../firebase";
+import { useNavigate, Link } from "react-router-dom";
 
 const SignIn = () => {
-    const {register,handleSubmit,reset} =useForm()
-    function regist(data){
-        signInWithEmailAndPassword(auth,data.email,data.password)
-        // .then((user)=>{
-        //     console.log(user)
-        // })
-          .then((user)=>{
-            alert(" login successfully!")
-            reset()
-            console.log(user?.user?.uid)
-            localStorage.setItem('userId',user?.user?.uid)
-        })
-         .catch(err=>alert(err.message))
-         
-    }
-  return (
-    <>
-    <form onSubmit={handleSubmit(regist)} className="col-lg-6 mx-auto my-5 p-5 shadow">
-        <h2 className='text-center'>Login</h2>
-        <div className="mt-4">
-            <input type="text"{...register('email')} className='form-control' placeholder="enter email id" />
-        </div>
-         <div className="mt-4">
-               <input type="text"{...register('password')} className='form-control' placeholder="enter password " />
-        </div>
-        <div className="mt-5 btn-group">
-            <button className='btn btn-success'>Register</button>
-            <NavLink to="/signin" className='btn btn-info g-5' >Login</NavLink>
-        </div>
-    </form>
-    
-    </>
-  )
-}
+  const navigate = useNavigate();
 
-export default SignIn
+  function signInWithGoogle() {
+    const provider = new GoogleAuthProvider();
+    signInWithPopup(auth, provider)
+      .then((res) => {
+        alert("Google login successful!");
+        localStorage.setItem("userId", res.user.uid);
+        navigate("/");
+      })
+      .catch((err) => alert(err.message));
+  }
+
+  return (
+    <div className="container">
+      <div className="col-lg-5 mx-auto my-5 p-4 shadow bg-white rounded text-center">
+        <h3 className="mb-4">Welcome Back</h3>
+        <button
+          onClick={signInWithGoogle}
+          className="btn btn-outline-danger w-100 py-2"
+        >
+          <i className="bi bi-google me-2"></i> Sign in with Google
+        </button>
+
+        <p className="mt-3">
+          Don’t have an account? <Link to="/signup">Create one</Link>
+        </p>
+      </div>
+    </div>
+  );
+};
+
+export default SignIn;
